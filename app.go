@@ -13,17 +13,22 @@ import (
 
 var brightness string = " .'^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
 
-type Pixel struct {
+type PixelColor struct {
 	R int
 	G int
 	B int
+}
+
+type ColorfulAscii struct {
+	Ascii string
+	Color PixelColor
 }
 
 func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(res, string(ProcessImage()))
+		fmt.Fprint(res, ProcessImage())
 	})
 
 	if err := http.ListenAndServe("localhost:8080", mux); err != nil {
@@ -32,11 +37,11 @@ func main() {
 
 }
 
-func ProcessImage() string {
+func ProcessImage() []ColorfulAscii {
 
 	imgRes, err := http.Get("https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Nazi_Swastika.svg/langru-200px-Nazi_Swastika.svg.png")
-	if err != nil || imgRes.StatusCode == 201 {
-		fmt.Println("Problem")
+	if err != nil || imgRes.StatusCode != 200 {
+		fmt.Println("Something went wrong")
 	}
 	defer imgRes.Body.Close()
 
@@ -52,9 +57,7 @@ func ProcessImage() string {
 	width = 150
 	height = int(float64(float64(width)/1.5) * float64(ratio) * float64(0.5))
 	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
-
-	result := ""
-
+	result := make([]ColorfulAscii, width*height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			pixel := img.At(x, y)
@@ -63,9 +66,24 @@ func ProcessImage() string {
 			g := float64(color.G)
 			b := float64(color.B)
 			sum := (((r + g + b) / 3) / 255) * 66
-			result += string(brightness[int(math.Round(sum))])
+
+			result = append(result, ColorfulAscii{
+				Ascii: string(brightness[int(math.Round(sum))]),
+				Color: PixelColor{
+					R: int(r),
+					G: int(g),
+					B: int(b),
+				},
+			})
 		}
-		result += string("\n")
+		result = append(result, ColorfulAscii{
+			Ascii: string("\n"),
+			Color: PixelColor{
+				R: int(0),
+				G: int(0),
+				B: int(0),
+			},
+		})
 	}
 	return result
 }
