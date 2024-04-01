@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/color"
 	"image/png"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"os"
 
@@ -33,16 +35,16 @@ type Image struct {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		res.Header().Set("Content-Type", "application/json")
-		data, err := json.Marshal(ProcessImage())
-		if err != nil {
-			fmt.Print(err)
-		}
-		res.Write(data)
-	})
-
 	handler := cors.Default().Handler(mux)
+
+	// mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+	// 	res.Header().Set("Content-Type", "application/json")
+	// 	data, err := json.Marshal(ProcessImage())
+	// 	if err != nil {
+	// 		fmt.Print(err)
+	// 	}
+	// 	res.Write(data)
+	// })
 
 	mux.HandleFunc("/api", func(res http.ResponseWriter, req *http.Request) {
 		//res.Header().Set("Content-Type", "application/json")
@@ -51,10 +53,25 @@ func main() {
 		//if err != nil {
 		//	fmt.Print(err)
 		//}
+
 		fmt.Fprint(res, ProcessImageNoColor())
 	})
 
-	if err := http.ListenAndServe("localhost:8000", handler); err != nil {
+	mux.HandleFunc("/test", func(res http.ResponseWriter, req *http.Request) {
+
+		file, _, err := req.FormFile("image")
+		if err != nil {
+			fmt.Print(err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		fmt.Print("ok")
+		data, err := json.Marshal(ProcessImage(file))
+		res.Write(data)
+	})
+
+	if err := http.ListenAndServe("localhost:3001", handler); err != nil {
 		fmt.Println(err.Error())
 	}
 
@@ -77,7 +94,7 @@ func ProcessImageNoColor() string {
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 	ratio := float64(height) / float64(width)
-	width = 150
+	width = 200
 	height = int(float64(float64(width)/1.5) * float64(ratio) * float64(0.5))
 	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
 	result := ""
@@ -96,7 +113,7 @@ func ProcessImageNoColor() string {
 	return result
 }
 
-func ProcessImage() []ColorfulAscii {
+func ProcessImage(file multipart.File) []ColorfulAscii {
 
 	imgRes, err := http.Get("https://c0.klipartz.com/pngpicture/562/67/gratis-png-tablero-de-geometria-tablero-de-instrumentos-hasta-puff-hexagonal-de-2-caras-geometria.png")
 	if err != nil || imgRes.StatusCode != 200 {
@@ -104,7 +121,7 @@ func ProcessImage() []ColorfulAscii {
 	}
 	defer imgRes.Body.Close()
 
-	img, err := png.Decode(imgRes.Body)
+	img, _, err := image.Decode(file)
 	if err != nil {
 		fmt.Println("Error: Image could not be decoded")
 		os.Exit(1)
@@ -113,10 +130,11 @@ func ProcessImage() []ColorfulAscii {
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 	ratio := float64(height) / float64(width)
-	width = 100
-	height = int(float64(float64(width)/1.5) * float64(ratio) * float64(0.5))
+	width = 120
+	height = int(float64(float64(width)/1.5) * float64(ratio))
 	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
 	result := make([]ColorfulAscii, width*height)
+	fmt.Print(width, height, ratio)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			pixel := img.At(x, y)
@@ -125,7 +143,13 @@ func ProcessImage() []ColorfulAscii {
 			g := float64(color.G)
 			b := float64(color.B)
 			sum := (((r + g + b) / 3) / 255) * 65
+
 			item := ColorfulAscii{Ascii: string(brightness[int(math.Round(sum))]), Color: PixelColor{R: int(r), G: int(g), B: int(b)}}
+			if item.Ascii == "." {
+				item.Color.R = 255
+				item.Color.G = 255
+				item.Color.B = 255
+			}
 			result = append(result, item)
 		}
 		result = append(result, ColorfulAscii{Ascii: string("enter"), Color: PixelColor{R: int(0), G: int(0), B: int(0)}})
