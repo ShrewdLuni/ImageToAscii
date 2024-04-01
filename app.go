@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
 	"math"
 	"mime/multipart"
 	"net/http"
@@ -37,27 +36,7 @@ func main() {
 	mux := http.NewServeMux()
 	handler := cors.Default().Handler(mux)
 
-	// mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-	// 	res.Header().Set("Content-Type", "application/json")
-	// 	data, err := json.Marshal(ProcessImage())
-	// 	if err != nil {
-	// 		fmt.Print(err)
-	// 	}
-	// 	res.Write(data)
-	// })
-
 	mux.HandleFunc("/api", func(res http.ResponseWriter, req *http.Request) {
-		//res.Header().Set("Content-Type", "application/json")
-		//image := &Image{Image: ProcessImageNoColor(), Color: [][]int{{255, 255, 255}, {1, 1, 1}}}
-		//data, err := json.Marshal(ProcessImageNoColor())
-		//if err != nil {
-		//	fmt.Print(err)
-		//}
-
-		fmt.Fprint(res, ProcessImageNoColor())
-	})
-
-	mux.HandleFunc("/test", func(res http.ResponseWriter, req *http.Request) {
 
 		file, _, err := req.FormFile("image")
 		if err != nil {
@@ -68,58 +47,27 @@ func main() {
 
 		fmt.Print("ok")
 		data, err := json.Marshal(ProcessImage(file))
+		if err != nil {
+			fmt.Print(err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		res.Write(data)
 	})
 
-	if err := http.ListenAndServe("localhost:3001", handler); err != nil {
+	if err := http.ListenAndServe("localhost:8080", handler); err != nil {
 		fmt.Println(err.Error())
 	}
-
-}
-
-func ProcessImageNoColor() string {
-
-	imgRes, err := http.Get("https://c0.klipartz.com/pngpicture/562/67/gratis-png-tablero-de-geometria-tablero-de-instrumentos-hasta-puff-hexagonal-de-2-caras-geometria.png")
-	if err != nil || imgRes.StatusCode != 200 {
-		fmt.Println("Something went wrong")
-	}
-	defer imgRes.Body.Close()
-
-	img, err := png.Decode(imgRes.Body)
-	if err != nil {
-		fmt.Println("Error: Image could not be decoded")
-		os.Exit(1)
-	}
-
-	bounds := img.Bounds()
-	width, height := bounds.Max.X, bounds.Max.Y
-	ratio := float64(height) / float64(width)
-	width = 200
-	height = int(float64(float64(width)/1.5) * float64(ratio) * float64(0.5))
-	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
-	result := ""
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			pixel := img.At(x, y)
-			color := color.RGBAModel.Convert(pixel).(color.RGBA)
-			r := float64(color.R)
-			g := float64(color.G)
-			b := float64(color.B)
-			sum := (((r + g + b) / 3) / 255) * 65
-			result += string(brightness[int(math.Round(sum))])
-		}
-		result += string("\n")
-	}
-	return result
 }
 
 func ProcessImage(file multipart.File) []ColorfulAscii {
+	// imgRes, err := http.Get("https://c0.klipartz.com/pngpicture/562/67/gratis-png-tablero-de-geometria-tablero-de-instrumentos-hasta-puff-hexagonal-de-2-caras-geometria.png")
+	// if err != nil || imgRes.StatusCode != 200 {
+	// 	fmt.Println("Something went wrong")
+	// }
+	// defer imgRes.Body.Close()
 
-	imgRes, err := http.Get("https://c0.klipartz.com/pngpicture/562/67/gratis-png-tablero-de-geometria-tablero-de-instrumentos-hasta-puff-hexagonal-de-2-caras-geometria.png")
-	if err != nil || imgRes.StatusCode != 200 {
-		fmt.Println("Something went wrong")
-	}
-	defer imgRes.Body.Close()
+	// img, err := png.Decode(imgRes.Body)
 
 	img, _, err := image.Decode(file)
 	if err != nil {
@@ -130,7 +78,7 @@ func ProcessImage(file multipart.File) []ColorfulAscii {
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 	ratio := float64(height) / float64(width)
-	width = 120
+	width = 60
 	height = int(float64(float64(width)/1.5) * float64(ratio))
 	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
 	result := make([]ColorfulAscii, width*height)
