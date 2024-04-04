@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"math"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/nfnt/resize"
@@ -17,6 +17,7 @@ import (
 )
 
 var ASCIIbyBrightness string = ".'^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+var requestCount int = 0
 
 type PixelColor struct {
 	R int
@@ -42,22 +43,27 @@ func main() {
 
 		file, _, err := req.FormFile("image")
 		if err != nil {
-			fmt.Print(err)
+			fmt.Printf("File error: \"%s\"\n", err)
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		resolution, err := strconv.Atoi(req.FormValue("resolution"))
 		if err != nil {
-			fmt.Print(err)
+			fmt.Printf("Resolution error: \"%s\"\n", err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
 		}
-		brightness, err := strconv.Atoi(req.FormValue("brightness"))
+		brightness, err := strconv.ParseFloat(req.FormValue("brightness"), 64)
 		if err != nil {
-			fmt.Print(err)
+			fmt.Printf("Brightness error: \"%s\"\n", err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
 		}
-
-		data, err := json.Marshal(ProcessImage(file, resolution, float64(brightness)/100))
+		data, err := json.Marshal(ProcessImage(file, resolution, brightness))
 		if err != nil {
-			fmt.Print(err)
+			fmt.Printf("Data error: \"%s\"\n", err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		res.Write(data)
 	})
@@ -68,20 +74,16 @@ func main() {
 
 }
 
-func ProcessImageNoColor(file multipart.File) {
-	img, err := png.Decode(file)
-	fmt.Print(err)
-	fmt.Print(img)
-}
-
 func ProcessImage(file multipart.File, resolution int, brightness float64) []ColorfulAscii {
-
+	fmt.Println(requestCount)
+	requestCount += 1
+	image.RegisterFormat("jpeg", "\xff\xd8", jpeg.Decode, jpeg.DecodeConfig)
+	image.RegisterFormat("png", "\x89PNG\r\n\x1a\n", png.Decode, png.DecodeConfig)
 	img, _, err := image.Decode(file)
 	if err != nil {
 		fmt.Println("Error: Image could not be decoded")
-		os.Exit(1)
 	}
-
+	resolution = Limit(resolution, 1000, 1)
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 	ratio := float64(height) / float64(width)
