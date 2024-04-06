@@ -11,6 +11,7 @@ import (
 	"math"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/nfnt/resize"
@@ -83,7 +84,12 @@ func main() {
 		}
 	})
 
-	if err := http.ListenAndServe("localhost:3001", handler); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	if err := http.ListenAndServe("0.0.0.0:"+port, handler); err != nil {
 		fmt.Println(err.Error())
 	}
 
