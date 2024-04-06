@@ -40,7 +40,11 @@ func main() {
 	mux := http.NewServeMux()
 	handler := cors.Default().Handler(mux)
 
-	mux.HandleFunc("/test", func(res http.ResponseWriter, req *http.Request) {
+	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		fmt.Println("There is nothing here,try /image")
+	})
+
+	mux.HandleFunc("/image", func(res http.ResponseWriter, req *http.Request) {
 
 		resolution, err := strconv.Atoi(req.FormValue("resolution"))
 		if err != nil {
