@@ -39,17 +39,17 @@ func main() {
 	handler := cors.Default().Handler(mux)
 
 	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Println("There is nothing here,try /image")
+		fmt.Println("There is nothing here, try /image")
 	})
 
 	mux.HandleFunc("/image", func(res http.ResponseWriter, req *http.Request) {
-
 		resolution, err := strconv.Atoi(req.FormValue("resolution"))
 		if err != nil {
 			fmt.Printf("Resolution error: \"%s\"\n", err)
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
 		brightness, err := strconv.ParseFloat(req.FormValue("brightness"), 64)
 		if err != nil {
 			fmt.Printf("Brightness error: \"%s\"\n", err)
@@ -92,7 +92,7 @@ func main() {
 			}
 		}
 
-		data, err := json.Marshal(ProcessImage(img, resolution, brightness))
+		data, err := json.Marshal(ProcessImage(img, Limit(resolution, 1000, 1), brightness))
 		if err != nil {
 			fmt.Printf("Data error: \"%s\"\n", err)
 			res.WriteHeader(http.StatusBadRequest)
@@ -106,37 +106,29 @@ func main() {
 		port = "3000"
 	}
 
-	if err := http.ListenAndServe("localhost:3001", handler); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:"+port, handler); err != nil {
 		fmt.Println(err.Error())
 	}
 
 }
 
 func ProcessImage(img image.Image, resolution int, brightness float64) []ColorfulAscii {
-	resolution = Limit(resolution, 1000, 1)
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 	ratio := float64(height) / float64(width)
 	width = resolution
 	height = int(float64(float64(width)/1.5) * float64(ratio))
-	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
 	result := make([]ColorfulAscii, width*height)
+
+	img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			pixel := img.At(x, y)
-			color := color.RGBAModel.Convert(pixel).(color.RGBA)
-			r := float64(color.R)
-			g := float64(color.G)
-			b := float64(color.B)
-			pixelBrightness := ((r + g + b) / 3)
-			sum := (float64(Limit(int(pixelBrightness*brightness), 255, 1)) / 255) * float64(len(ASCIIbyBrightness)-1)
-
-			item := ColorfulAscii{Ascii: string(ASCIIbyBrightness[int(math.Round(sum))]), Color: PixelColor{R: LimitPixel(r * brightness), G: LimitPixel(g * brightness), B: LimitPixel(b * brightness)}}
-			if item.Ascii == "." {
-				item.Color.R = 255
-				item.Color.G = 255
-				item.Color.B = 255
-			}
+			pixel := color.RGBAModel.Convert(img.At(x, y)).(color.RGBA)
+			r := float64(pixel.R)
+			g := float64(pixel.G)
+			b := float64(pixel.B)
+			//Creat colorful Ascii from pixels
+			item := ColorfulAscii{Ascii: string(ASCIIbyBrightness[int(math.Round((float64(Limit(int(((r+g+b)/3)*brightness), 255, 1))/255)*float64(len(ASCIIbyBrightness)-1)))]), Color: PixelColor{R: Limit(int(r*brightness), 255, 0), G: Limit(int(g*brightness), 255, 0), B: Limit(int(b*brightness), 255, 0)}}
 			result = append(result, item)
 		}
 		result = append(result, ColorfulAscii{Ascii: string("enter"), Color: PixelColor{R: int(0), G: int(0), B: int(0)}})
@@ -152,11 +144,4 @@ func Limit(value int, maxValue int, minValue int) int {
 		return minValue
 	}
 	return value
-}
-
-func LimitPixel(value float64) int {
-	if value >= 255 {
-		return 255
-	}
-	return int(math.Round(value))
 }
