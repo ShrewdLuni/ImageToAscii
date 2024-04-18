@@ -58,6 +58,10 @@ func main() {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
+		var data []byte
+		var dataError error
+
 		if req.FormValue("isFile") == "true" {
 			file, _, err := req.FormFile("image")
 			if err != nil {
@@ -65,27 +69,24 @@ func main() {
 				res.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			data, err := json.Marshal(ProcessImageFile(file, resolution, brightness))
-			if err != nil {
-				fmt.Printf("Data error: \"%s\"\n", err)
-				res.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			res.Write(data)
+			data, dataError = json.Marshal(ProcessImageFile(file, resolution, brightness))
 		} else {
 			imageResponse, err := http.Get(req.FormValue("link"))
 			if err != nil || imageResponse.StatusCode == 201 {
 				fmt.Println("Problem")
-			}
-			defer imageResponse.Body.Close()
-			data, err := json.Marshal(ProcessImageLink(imageResponse.Body, resolution, brightness))
-			if err != nil {
-				fmt.Printf("Data error: \"%s\"\n", err)
 				res.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			res.Write(data)
+			defer imageResponse.Body.Close()
+			data, dataError = json.Marshal(ProcessImageLink(imageResponse.Body, resolution, brightness))
 		}
+
+		if dataError != nil {
+			fmt.Printf("Data error: \"%s\"\n", err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		res.Write(data)
 	})
 
 	port := os.Getenv("PORT")
