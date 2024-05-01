@@ -39,7 +39,11 @@ func main() {
 	handler := cors.Default().Handler(mux)
 
 	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Println("There is nothing here, try /image")
+		fmt.Println("There is nothing here, try /image or /help")
+	})
+
+	mux.HandleFunc("/help", func(res http.ResponseWriter, req *http.Request) {
+		fmt.Println("Visit https://ascii-six.vercel.app :-)")
 	})
 
 	mux.HandleFunc("/image", func(res http.ResponseWriter, req *http.Request) {
