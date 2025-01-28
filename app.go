@@ -36,7 +36,12 @@ type Image struct {
 
 func main() {
 	mux := http.NewServeMux()
-	handler := cors.Default().Handler(mux)
+	handler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+	}).Handler(mux)
+
 	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		fmt.Println("There is nothing here, visit /help for more instructions")
 	})
